@@ -9,8 +9,9 @@
 
 import React, { useRef } from "react";
 import "./App.css";
-import * as tf from "@tensorflow/tfjs";
-import * as posenet from "@tensorflow-models/posenet";
+import * as tf from "@tensorflow/tfjs-core";
+import * as poseDetection from "@tensorflow-models/pose-detection";
+import "@tensorflow/tfjs-backend-webgl";
 import Webcam from "react-webcam";
 import { drawKeypoints, drawSkeleton } from "./utilities";
 
@@ -20,14 +21,16 @@ function App() {
 
   //  Load posenet
   const runPosenet = async () => {
-    const net = await posenet.load({
-      inputResolution: { width: 640, height: 480 },
-      scale: 0.8,
-    });
-    //
+    const detector = await poseDetection.createDetector(
+      poseDetection.SupportedModels.BlazePose,
+      {
+        runtime: "tfjs"
+      }
+    );
+
     setInterval(() => {
-      detect(net);
-    }, 100);
+      detect(detector);
+    }, 20);
   };
 
   const detect = async (net) => {
@@ -46,8 +49,8 @@ function App() {
       webcamRef.current.video.height = videoHeight;
 
       // Make Detections
-      const pose = await net.estimateSinglePose(video);
-      console.log(pose);
+      const pose = await net.estimatePoses(video);
+      // console.log(pose);
 
       drawCanvas(pose, video, videoWidth, videoHeight, canvasRef);
     }
@@ -57,12 +60,14 @@ function App() {
     const ctx = canvas.current.getContext("2d");
     canvas.current.width = videoWidth;
     canvas.current.height = videoHeight;
-
-    drawKeypoints(pose["keypoints"], 0.6, ctx);
-    drawSkeleton(pose["keypoints"], 0.7, ctx);
+    drawKeypoints(pose[0]["keypoints"], ctx);
+    drawSkeleton(pose[0]["keypoints"], ctx);
   };
 
-  runPosenet();
+  tf.setBackend("webgl")
+  .then(() => {
+    runPosenet();
+  });
 
   return (
     <div className="App">
